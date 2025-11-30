@@ -8,7 +8,7 @@
 #include "EEncoder.h"
 
 // Constructor with button
-EEncoder::EEncoder(uint8_t pinA, uint8_t pinB, uint8_t buttonPin, uint8_t countsPerDetent) :
+EEncoder::EEncoder(uint8_t pinA, uint8_t pinB, uint8_t buttonPin, uint8_t countsPerDetent, bool callbackOnRelease) :
     _pinA(pinA),
     _pinB(pinB),
     _buttonPin(buttonPin),
@@ -35,7 +35,9 @@ EEncoder::EEncoder(uint8_t pinA, uint8_t pinB, uint8_t buttonPin, uint8_t counts
     _encoderCallback(nullptr),
     _buttonCallback(nullptr),
     _longPressCallback(nullptr),
-    _enabled(true)
+    _enabled(true),
+    _callbackOnRelease(callbackOnRelease)
+
 {
     // Configure pins with INPUT_PULLUP
     pinMode(_pinA, INPUT_PULLUP);
@@ -76,7 +78,8 @@ EEncoder::EEncoder(uint8_t pinA, uint8_t pinB, uint8_t countsPerDetent) :
     _encoderCallback(nullptr),
     _buttonCallback(nullptr),
     _longPressCallback(nullptr),
-    _enabled(true)
+    _enabled(true),
+    _callbackOnRelease(false)
 {
     // Configure pins
     pinMode(_pinA, INPUT_PULLUP);
@@ -213,36 +216,66 @@ void EEncoder::readButton() {
     if (currentState != _lastButtonState) {
         _buttonStateChangeTime = millis();
     }
-    
-    // Check if we've passed the debounce interval
-    if ((millis() - _buttonStateChangeTime) >= _debounceInterval) {
-        // State has been stable for debounce interval
-        if (currentState != _buttonState) {
-            _buttonState = currentState;
-            
-            // Button pressed (transition to LOW)
-            if (_buttonState == LOW) {
-                _buttonPressTime = millis();
-                _longPressHandled = false;
+
+    // Separate callbacks on press and release
+    if (_callbackOnRelease) {
+        // Check if we've passed the debounce interval
+        if ((millis() - _buttonStateChangeTime) >= _debounceInterval) {
+            // State has been stable for debounce interval
+            if (currentState != _buttonState) {
+                _buttonState = currentState;
                 
-                // Fire regular press callback
-                if (_buttonCallback != nullptr) {
-                    _buttonCallback(*this);
+                // Button pressed (transition to LOW)
+                if (_buttonState == LOW) {
+                    _buttonPressTime = millis();
+                    _longPressHandled = false;
+                }
+                // Button released
+                else {
+                    if ((millis() - _buttonPressTime) < _longPressDuration) {
+                        // Fire regular press callback
+                        if (_buttonCallback != nullptr) {
+                            _buttonCallback(*this);
+                        }
+                    } else if (!_longPressHandled && _longPressCallback != nullptr) {
+                        // Fire long press callback
+                        _longPressHandled = true;
+                        _longPressCallback(*this);
+		    }
                 }
             }
-            // Button released
-            else {
-                // Reset long press flag
-                _longPressHandled = false;
+        }
+    } else {    
+        // Check if we've passed the debounce interval
+        if ((millis() - _buttonStateChangeTime) >= _debounceInterval) {
+            // State has been stable for debounce interval
+            if (currentState != _buttonState) {
+                _buttonState = currentState;
+                
+                // Button pressed (transition to LOW)
+                if (_buttonState == LOW) {
+                    _buttonPressTime = millis();
+                    _longPressHandled = false;
+                    
+                    // Fire regular press callback
+                    if (_buttonCallback != nullptr) {
+                        _buttonCallback(*this);
+                    }
+                }
+                // Button released
+                else {
+                    // Reset long press flag
+                    _longPressHandled = false;
+                }
             }
         }
-    }
-    
-    // Check for long press while button is held
-    if (_buttonState == LOW && !_longPressHandled && _longPressCallback != nullptr) {
-        if ((millis() - _buttonPressTime) >= _longPressDuration) {
-            _longPressHandled = true;
-            _longPressCallback(*this);
+        
+        // Check for long press while button is held
+        if (_buttonState == LOW && !_longPressHandled && _longPressCallback != nullptr) {
+            if ((millis() - _buttonPressTime) >= _longPressDuration) {
+                _longPressHandled = true;
+                _longPressCallback(*this);
+            }
         }
     }
     

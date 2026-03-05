@@ -48,7 +48,7 @@ typedef void (*ButtonCallback)(EEncoder& encoder);
 class EEncoder {
 public:
     // Constructor for encoder with button
-    EEncoder(uint8_t pinA, uint8_t pinB, uint8_t buttonPin, uint8_t countsPerDetent = DEFAULT_COUNTS_PER_DETENT);
+    EEncoder(uint8_t pinA, uint8_t pinB, uint8_t buttonPin, uint8_t countsPerDetent = DEFAULT_COUNTS_PER_DETENT, bool callbackOnRelease = false);
     
     // Constructor for encoder without button
     EEncoder(uint8_t pinA, uint8_t pinB, uint8_t countsPerDetent = DEFAULT_COUNTS_PER_DETENT);
@@ -105,6 +105,7 @@ private:
     uint32_t _buttonStateChangeTime;
     uint32_t _buttonPressTime;
     bool _longPressHandled;
+    bool _callbackOnRelease;
     
     // Debouncing
     uint16_t _debounceInterval;
